@@ -32,6 +32,7 @@ export function Eventos() {
     supabase
       .from("eventos")
       .select("*")
+      .is("grupo_slug", null)
       .order("data", { ascending: true })
       .then(({ data }) => {
         setEventos(data ?? []);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
+import { SiteIntro } from "@/components/layout/SiteIntro";
 import "./globals.css";
 
 const inter = Inter({
@@ -40,7 +41,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={`${inter.variable} ${manrope.variable}`}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <SiteIntro />
+        {children}
+      </body>
     </html>
   );
 }

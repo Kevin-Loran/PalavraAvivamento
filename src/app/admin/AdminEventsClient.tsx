@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import {
   Plus, Pencil, Trash2, X, Loader2,
   Calendar, Clock, MapPin, AlertCircle, LogOut,
+  Upload, ImageOff,
 } from "lucide-react";
-import { supabase, type Evento } from "@/lib/supabase";
+import { supabase, type Evento, type Grupo } from "@/lib/supabase";
 
 const CATEGORIAS = [
   "Evento",
@@ -24,6 +26,8 @@ const EMPTY_FORM = {
   local: "Sede Central",
   descricao: "",
   categoria: "Evento",
+  grupo_slug: "",
+  imagem: "",
 };
 
 function formatDate(iso: string): string {
@@ -44,12 +48,15 @@ const labelCls =
 
 export function AdminEventsClient() {
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -67,7 +74,18 @@ export function AdminEventsClient() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadEventos(); }, [loadEventos]);
+  const loadGrupos = useCallback(async () => {
+    const { data } = await supabase
+      .from("grupos")
+      .select("id, nome, slug")
+      .order("nome", { ascending: true });
+    if (data) setGrupos(data as Grupo[]);
+  }, []);
+
+  useEffect(() => {
+    loadEventos();
+    loadGrupos();
+  }, [loadEventos, loadGrupos]);
 
   function openCreate() {
     setForm(EMPTY_FORM);
@@ -84,6 +102,8 @@ export function AdminEventsClient() {
       local: evento.local,
       descricao: evento.descricao,
       categoria: evento.categoria,
+      grupo_slug: evento.grupo_slug ?? "",
+      imagem: evento.imagem ?? "",
     });
     setEditId(evento.id);
     setError(null);
@@ -101,6 +121,24 @@ export function AdminEventsClient() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  async function handleImageUpload(file: File) {
+    setUploading(true);
+    setError(null);
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const filename = `${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("eventos")
+      .upload(filename, file, { upsert: true, contentType: file.type });
+    if (uploadError) {
+      setError(`Erro no upload: ${uploadError.message}`);
+      setUploading(false);
+      return;
+    }
+    const { data } = supabase.storage.from("eventos").getPublicUrl(filename);
+    setField("imagem", data.publicUrl);
+    setUploading(false);
+  }
+
   async function handleSave() {
     if (!form.titulo.trim() || !form.data) {
       setError("Título e data são obrigatórios.");
@@ -109,14 +147,22 @@ export function AdminEventsClient() {
     setSaving(true);
     setError(null);
 
+    const payload = {
+      titulo: form.titulo.trim(),
+      data: form.data,
+      horario: form.horario.trim(),
+      local: form.local.trim(),
+      descricao: form.descricao.trim(),
+      categoria: form.categoria,
+      grupo_slug: form.grupo_slug || null,
+      imagem: form.imagem.trim(),
+    };
+
     if (editId) {
-      const { error } = await supabase
-        .from("eventos")
-        .update(form)
-        .eq("id", editId);
+      const { error } = await supabase.from("eventos").update(payload).eq("id", editId);
       if (error) { setError(error.message); setSaving(false); return; }
     } else {
-      const { error } = await supabase.from("eventos").insert(form);
+      const { error } = await supabase.from("eventos").insert(payload);
       if (error) { setError(error.message); setSaving(false); return; }
     }
 
@@ -131,37 +177,55 @@ export function AdminEventsClient() {
     loadEventos();
   }
 
+  const grupoDoEvento = (slug: string | null) =>
+    grupos.find((g) => g.slug === slug);
+
   return (
     <main className="min-h-screen bg-neutral-100">
       {/* Header */}
       <div className="bg-brand-900 text-white">
-        <div className="mx-auto max-w-4xl px-6 py-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-brand-400 text-xs font-medium uppercase tracking-wider mb-1">
-              Admin
-            </p>
-            <h1 className="font-heading font-bold text-2xl">
-              Próximos Eventos
-            </h1>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {!showForm && (
+        <div className="mx-auto max-w-4xl px-6 py-8">
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <div>
+              <p className="text-brand-400 text-xs font-medium uppercase tracking-wider mb-1">
+                Admin
+              </p>
+              <h1 className="font-heading font-bold text-2xl">
+                Próximos Eventos
+              </h1>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {!showForm && (
+                <button
+                  onClick={openCreate}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity duration-200"
+                  style={{ background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" }}
+                >
+                  <Plus className="w-4 h-4" aria-hidden="true" />
+                  Novo Evento
+                </button>
+              )}
               <button
-                onClick={openCreate}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white hover:opacity-90 transition-opacity duration-200"
-                style={{ background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" }}
+                onClick={handleLogout}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-brand-400 hover:text-white hover:bg-white/10 transition-colors duration-200"
+                aria-label="Sair"
               >
-                <Plus className="w-4 h-4" aria-hidden="true" />
-                Novo Evento
+                <LogOut className="w-4 h-4" />
               </button>
-            )}
-            <button
-              onClick={handleLogout}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-brand-400 hover:text-white hover:bg-white/10 transition-colors duration-200"
-              aria-label="Sair"
+            </div>
+          </div>
+
+          {/* Nav tabs */}
+          <div className="flex gap-1">
+            <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/15 text-white">
+              Eventos
+            </span>
+            <Link
+              href="/admin/grupos"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors duration-200"
             >
-              <LogOut className="w-4 h-4" />
-            </button>
+              Grupos
+            </Link>
           </div>
         </div>
       </div>
@@ -191,6 +255,7 @@ export function AdminEventsClient() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              {/* Título */}
               <div className="sm:col-span-2">
                 <label className={labelCls}>Título *</label>
                 <input
@@ -200,6 +265,8 @@ export function AdminEventsClient() {
                   placeholder="Ex: Retiro da Mocidade"
                 />
               </div>
+
+              {/* Data */}
               <div>
                 <label className={labelCls}>Data *</label>
                 <input
@@ -209,6 +276,8 @@ export function AdminEventsClient() {
                   onChange={(e) => setField("data", e.target.value)}
                 />
               </div>
+
+              {/* Horário */}
               <div>
                 <label className={labelCls}>Horário</label>
                 <input
@@ -218,6 +287,8 @@ export function AdminEventsClient() {
                   placeholder="Ex: 19h ou 19h às 21h"
                 />
               </div>
+
+              {/* Local */}
               <div>
                 <label className={labelCls}>Local</label>
                 <input
@@ -227,6 +298,8 @@ export function AdminEventsClient() {
                   placeholder="Ex: Sede Central"
                 />
               </div>
+
+              {/* Categoria */}
               <div>
                 <label className={labelCls}>Categoria</label>
                 <select
@@ -239,6 +312,26 @@ export function AdminEventsClient() {
                   ))}
                 </select>
               </div>
+
+              {/* Grupo */}
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Grupo (opcional)</label>
+                <select
+                  className={inputCls}
+                  value={form.grupo_slug}
+                  onChange={(e) => setField("grupo_slug", e.target.value)}
+                >
+                  <option value="">— Geral (aparece para todos) —</option>
+                  {grupos.map((g) => (
+                    <option key={g.slug} value={g.slug}>{g.nome}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-neutral-400">
+                  Se selecionar um grupo, o evento aparece também na página daquele grupo.
+                </p>
+              </div>
+
+              {/* Descrição */}
               <div className="sm:col-span-2">
                 <label className={labelCls}>Descrição</label>
                 <textarea
@@ -248,6 +341,49 @@ export function AdminEventsClient() {
                   onChange={(e) => setField("descricao", e.target.value)}
                   placeholder="Descrição breve do evento..."
                 />
+              </div>
+
+              {/* Imagem */}
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Imagem do evento</label>
+                <div className="flex items-start gap-4">
+                  <div className="w-24 h-16 rounded-xl border border-neutral-200 overflow-hidden shrink-0 bg-neutral-100 flex items-center justify-center">
+                    {form.imagem ? (
+                      <img src={form.imagem} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageOff className="w-5 h-5 text-neutral-300" aria-hidden="true" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-300 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors duration-200 disabled:opacity-60"
+                    >
+                      {uploading
+                        ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        : <Upload className="w-4 h-4" aria-hidden="true" />}
+                      {uploading ? "Enviando…" : "Escolher imagem"}
+                    </button>
+                    <input
+                      className={`${inputCls} text-xs`}
+                      value={form.imagem}
+                      onChange={(e) => setField("imagem", e.target.value)}
+                      placeholder="Ou cole a URL da imagem"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -293,53 +429,77 @@ export function AdminEventsClient() {
             </div>
           ) : (
             <div className="space-y-3">
-              {eventos.map((evento) => (
-                <div
-                  key={evento.id}
-                  className="bg-white rounded-2xl border border-neutral-300 px-5 py-4 flex items-start justify-between gap-4 hover:border-brand-200 transition-colors duration-200"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-heading font-semibold text-brand-900 text-sm">
-                      {evento.titulo}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-neutral-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3 shrink-0" aria-hidden="true" />
-                        {formatDate(evento.data)}
-                      </span>
-                      {evento.horario && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
-                          {evento.horario}
-                        </span>
+              {eventos.map((evento) => {
+                const grupo = grupoDoEvento(evento.grupo_slug);
+                return (
+                  <div
+                    key={evento.id}
+                    className="bg-white rounded-2xl border border-neutral-300 px-5 py-4 flex items-start justify-between gap-4 hover:border-brand-200 transition-colors duration-200"
+                  >
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
+                      {/* Thumbnail */}
+                      {evento.imagem ? (
+                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-neutral-200">
+                          <img src={evento.imagem} alt={evento.titulo} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl shrink-0 border border-neutral-200 bg-neutral-100 flex items-center justify-center">
+                          <ImageOff className="w-4 h-4 text-neutral-300" />
+                        </div>
                       )}
-                      {evento.local && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
-                          {evento.local}
-                        </span>
-                      )}
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <p className="font-heading font-semibold text-brand-900 text-sm">
+                            {evento.titulo}
+                          </p>
+                          {grupo && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                              style={{ background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" }}>
+                              {grupo.nome}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            {formatDate(evento.data)}
+                          </span>
+                          {evento.horario && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              {evento.horario}
+                            </span>
+                          )}
+                          {evento.local && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              {evento.local}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => openEdit(evento)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-brand-700 hover:bg-brand-50 transition-colors duration-200"
+                        aria-label={`Editar ${evento.titulo}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(evento.id, evento.titulo)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
+                        aria-label={`Remover ${evento.titulo}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => openEdit(evento)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-brand-700 hover:bg-brand-50 transition-colors duration-200"
-                      aria-label={`Editar ${evento.titulo}`}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(evento.id, evento.titulo)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
-                      aria-label={`Remover ${evento.titulo}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

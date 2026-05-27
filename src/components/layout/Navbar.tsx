@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DonateModal } from "@/components/layout/DonateModal";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -18,6 +19,7 @@ const navLinks = [
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [donateOpen, setDonateOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -26,6 +28,7 @@ export function Navbar() {
   }, []);
 
   return (
+    <>
     <header
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
@@ -78,7 +81,16 @@ export function Navbar() {
           </ul>
 
           {/* Desktop CTA */}
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={() => setDonateOpen(true)}
+              className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity duration-200 hover:opacity-90"
+              style={{
+                background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+              }}
+            >
+              Dizimar
+            </button>
             <Button size="sm" asChild>
               <Link href="#contato">Fale conosco</Link>
             </Button>
@@ -114,7 +126,18 @@ export function Navbar() {
                   </Link>
                 </li>
               ))}
-              <li className="px-4 pt-2 pb-2">
+              <li className="px-4 pt-2 pb-1">
+                <button
+                  onClick={() => { setIsOpen(false); setDonateOpen(true); }}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-opacity duration-200 hover:opacity-90"
+                  style={{
+                    background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+                  }}
+                >
+                  Dizimar
+                </button>
+              </li>
+              <li className="px-4 pt-1 pb-2">
                 <Button size="sm" className="w-full" asChild>
                   <Link href="#contato" onClick={() => setIsOpen(false)}>
                     Fale conosco
@@ -126,5 +149,8 @@ export function Navbar() {
         )}
       </nav>
     </header>
+
+    <DonateModal open={donateOpen} onClose={() => setDonateOpen(false)} />
+    </>
   );
 }

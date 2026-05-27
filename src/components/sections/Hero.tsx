@@ -54,7 +54,7 @@ export function Hero() {
     >
       {/* Subtle background radials */}
       <div
-        className="absolute inset-0 opacity-5"
+        className="pointer-events-none absolute inset-0 opacity-5"
         style={{
           backgroundImage: `radial-gradient(circle at 25% 25%, #3b6ea5 0%, transparent 50%),
                            radial-gradient(circle at 75% 75%, #1e3a5f 0%, transparent 50%)`,
