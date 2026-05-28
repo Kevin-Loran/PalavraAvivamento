@@ -49,7 +49,7 @@ export function Hero() {
     <section
       ref={sectionRef}
       id="hero"
-      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-brand-900"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-brand-900 pt-16"
       aria-label="Seção principal"
     >
       {/* Subtle background radials */}

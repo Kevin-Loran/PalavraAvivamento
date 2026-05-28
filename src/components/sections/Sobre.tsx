@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, Flame, Instagram, Shield, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Flame, Instagram, Shield, Sparkles, Star, Users, Heart } from "lucide-react";
+import type { Grupo } from "@/lib/supabase";
 
 const values = [
   {
@@ -15,39 +16,13 @@ const values = [
   },
 ];
 
-const groups = [
-  {
-    icon: Flame,
-    title: "Mocidade",
-    slug: "mocidade",
-    description:
-      "Grupo voltado para os jovens da igreja. Encontros de comunhão, estudos bíblicos e crescimento na fé.",
-    instagram: "https://www.instagram.com/mocidaderesgatedivino/",
-  },
-  {
-    icon: Shield,
-    title: "Grupo de Varões",
-    slug: "varones",
-    description:
-      "Homens da igreja unidos em oração e propósito. Encontros focados em liderança e crescimento espiritual.",
-  },
-  {
-    icon: Sparkles,
-    title: "Grupo de Varoas",
-    slug: "varoas",
-    description:
-      "Mulheres da igreja em comunhão e fortalecimento espiritual. Um espaço de graça, cuidado e fé.",
-  },
-  {
-    icon: Star,
-    title: "Ombreiros",
-    slug: "ombreiros",
-    description:
-      "Equipe dedicada ao suporte e manutenção da igreja. Auxiliam os pastores e garantem que tudo funcione com excelência.",
-  },
-];
+const GROUP_ICONS = [Flame, Shield, Sparkles, Star, Users, Heart];
 
-export function Sobre() {
+interface SobreProps {
+  grupos: Grupo[];
+}
+
+export function Sobre({ grupos }: SobreProps) {
   return (
     <section
       id="sobre"
@@ -121,51 +96,54 @@ export function Sobre() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {groups.map(({ icon: Icon, title, slug, description, instagram }) => (
-              <a
-                key={slug}
-                href={`/grupos/${slug}`}
-                style={{ display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit", cursor: "pointer" }}
-                className="group p-6 rounded-2xl bg-white border border-neutral-300 hover:border-brand-200 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-colors duration-200"
-                  style={{ backgroundColor: "rgba(249,115,22,0.09)" }}
+            {grupos.map((grupo, index) => {
+              const Icon = GROUP_ICONS[index % GROUP_ICONS.length];
+              return (
+                <a
+                  key={grupo.slug}
+                  href={`/grupos/${grupo.slug}`}
+                  style={{ display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit", cursor: "pointer" }}
+                  className="group p-6 rounded-2xl bg-white border border-neutral-300 hover:border-brand-200 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  <Icon
-                    className="w-5 h-5"
-                    style={{ color: "#f97316" }}
-                    aria-hidden="true"
-                  />
-                </div>
-                <h3 className="font-heading font-semibold text-brand-900 text-base mb-2">
-                  {title}
-                </h3>
-                <p className="text-neutral-600 text-sm leading-relaxed flex-1">
-                  {description}
-                </p>
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-colors duration-200"
+                    style={{ backgroundColor: "rgba(249,115,22,0.09)" }}
+                  >
+                    <Icon
+                      className="w-5 h-5"
+                      style={{ color: "#f97316" }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <h3 className="font-heading font-semibold text-brand-900 text-base mb-2">
+                    {grupo.nome}
+                  </h3>
+                  <p className="text-neutral-600 text-sm leading-relaxed flex-1">
+                    {grupo.descricao}
+                  </p>
 
-                <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center justify-between">
-                  {instagram ? (
-                    <span
-                      className="inline-flex items-center gap-1.5 text-xs text-neutral-400 group-hover:text-neutral-600 transition-colors duration-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(instagram, "_blank", "noopener,noreferrer");
-                      }}
-                    >
-                      <Instagram className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      Instagram
-                    </span>
-                  ) : (
-                    <span className="text-xs text-neutral-400 group-hover:text-brand-600 transition-colors duration-200">
-                      Conhecer grupo
-                    </span>
-                  )}
-                  <ArrowRight className="w-3.5 h-3.5 text-neutral-300 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all duration-200" />
-                </div>
-              </a>
-            ))}
+                  <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center justify-between">
+                    {grupo.instagram ? (
+                      <span
+                        className="inline-flex items-center gap-1.5 text-xs text-neutral-400 group-hover:text-neutral-600 transition-colors duration-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(grupo.instagram, "_blank", "noopener,noreferrer");
+                        }}
+                      >
+                        <Instagram className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        Instagram
+                      </span>
+                    ) : (
+                      <span className="text-xs text-neutral-400 group-hover:text-brand-600 transition-colors duration-200">
+                        Conhecer grupo
+                      </span>
+                    )}
+                    <ArrowRight className="w-3.5 h-3.5 text-neutral-300 group-hover:text-brand-600 group-hover:translate-x-0.5 transition-all duration-200" />
+                  </div>
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>
